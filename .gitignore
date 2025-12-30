@@ -1,0 +1,23 @@
+# Environment variables
+.env*
+
+# Resources (large data files)
+resources/
+
+# Python
+__pycache__/
+lib/
+
+# Virtual environments
+venv/
+.venv
+
+# OS
+.DS_Store
+
+# Project-specific outputs
+experiments/
+visualizations/
+outputs/
+*.pkl
+*.backup
