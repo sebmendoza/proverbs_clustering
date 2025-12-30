@@ -3,7 +3,6 @@ from typing import TypedDict
 
 
 class Cluster(TypedDict):
-    """Type definition for a cluster."""
     cluster_id: int
     verses: list[str]
     num_verses: int

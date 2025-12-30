@@ -66,7 +66,6 @@ Title:"""
         return prompt
 
     def _clean_title(self, text: str) -> str:
-        """Clean generated title."""
         text = text.strip()
         # Remove quotes
         text = re.sub(r'^["\']|["\']$', '', text)

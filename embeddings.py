@@ -1,7 +1,14 @@
+import logging
 from sentence_transformers import SentenceTransformer
 from pathlib import Path
 import pickle
 from utils import getDataFromJson
+
+logger = logging.getLogger(__name__)
+
+# Define project root relative to this module's location
+PROJECT_ROOT = Path(__file__).parent
+CACHE_FILE = PROJECT_ROOT / "esv_embeddings.pkl"
 
 
 def create_embeddings():
@@ -18,15 +25,31 @@ def create_embeddings():
 
 
 def get_or_create_embeddings():
-    cache_file = Path('esv_embeddings.pkl')
-    if cache_file.exists():
-        with open(cache_file, 'rb') as f:
-            print("Got from pickle...")
-            return pickle.load(f)
+    if CACHE_FILE.exists():
+        try:
+            with open(CACHE_FILE, 'rb') as f:
+                logger.info("Got from pickle...")
+                return pickle.load(f)
+        except PermissionError:
+            raise PermissionError(
+                f"Permission denied reading {CACHE_FILE}. Check file permissions."
+            )
+        except pickle.UnpicklingError as e:
+            raise ValueError(
+                f"Error unpickling {CACHE_FILE}. File may be corrupted: {e}")
+        except Exception as e:
+            raise RuntimeError(f"Unexpected error reading {CACHE_FILE}: {e}")
 
     embeddings_dict = create_embeddings()
-    with open(cache_file, 'wb') as f:
-        pickle.dump(embeddings_dict, f)
+    try:
+        with open(CACHE_FILE, 'wb') as f:
+            pickle.dump(embeddings_dict, f)
+    except PermissionError:
+        raise PermissionError(
+            f"Permission denied writing to {CACHE_FILE}. Check directory permissions."
+        )
+    except OSError as e:
+        raise OSError(f"Error writing to {CACHE_FILE}: {e}")
 
     return embeddings_dict
 

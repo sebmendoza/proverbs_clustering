@@ -6,6 +6,7 @@ to reveal thematic structure at multiple levels of granularity.
 """
 
 import json
+import logging
 import numpy as np
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
@@ -15,7 +16,9 @@ from typing import Tuple, List, Dict, Optional
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster, cophenet
 from scipy.spatial.distance import pdist
 
-from utils import getDataFromJson
+from utils import getDataFromJson, organize_clusters_data
+
+logger = logging.getLogger(__name__)
 
 
 def compute_linkage(
@@ -292,38 +295,6 @@ def create_interactive_dendrogram(
     fig.write_html(output_path)
 
 
-def organize_clusters_data(
-    labels: np.ndarray,
-    verse_refs: List[Tuple[str, str]],
-    verses_dict: Dict,
-    k: int
-) -> Dict:
-    # Organize clustering results into structured data format.
-    clusters_data = {}
-
-    for cluster_id in range(k):
-        cluster_indices = np.where(labels == cluster_id)[0]
-        cluster_verses = []
-
-        for idx in cluster_indices:
-            chapter, verse = verse_refs[idx]
-            text = verses_dict[chapter][verse]
-            cluster_verses.append({
-                "chapter": chapter,
-                "verse": verse,
-                "text": text,
-                "index": int(idx)
-            })
-
-        clusters_data[f"cluster_{cluster_id}"] = {
-            "cluster_id": cluster_id,
-            "num_verses": len(cluster_indices),
-            "verses": cluster_verses
-        }
-
-    return clusters_data
-
-
 def run_hierarchical_clustering(
     embeddings: np.ndarray,
     verse_refs: List[Tuple[str, str]],
@@ -344,43 +315,51 @@ def run_hierarchical_clustering(
     experiment_dir = Path(output_dir) / f"hierarchical_{timestamp}"
     experiment_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"\n{'='*70}")
-    print(f"Starting Hierarchical Clustering Pipeline")
-    print(f"{'='*70}")
-    print(f"Timestamp: {timestamp}")
-    print(f"Linkage method: {method}")
-    print(f"Distance metric: {metric}")
-    print(f"Total verses: {len(verse_refs)}")
-    print(f"K values for flat clustering: {k_values}")
-    print(f"Output directory: {experiment_dir}")
-    print(f"{'='*70}\n")
+    logger.info("="*70)
+    logger.info("Starting Hierarchical Clustering Pipeline")
+    logger.info("="*70)
+    logger.info(f"Timestamp: {timestamp}")
+    logger.info(f"Linkage method: {method}")
+    logger.info(f"Distance metric: {metric}")
+    logger.info(f"Total verses: {len(verse_refs)}")
+    logger.info(f"K values for flat clustering: {k_values}")
+    logger.info(f"Output directory: {experiment_dir}")
+    logger.info("="*70)
 
     # Load verse data
     verses_dict = getDataFromJson()
 
     # Compute linkage
-    print("Computing hierarchical clustering linkage...")
+    logger.info("Computing hierarchical clustering linkage...")
     linkage_matrix, distance_matrix = compute_linkage(
         embeddings, method, metric)
-    print(f"Linkage matrix shape: {linkage_matrix.shape}")
+    logger.debug(f"Linkage matrix shape: {linkage_matrix.shape}")
 
     # Compute metrics
-    print("Computing quality metrics...")
+    logger.info("Computing quality metrics...")
     metrics = compute_hierarchical_metrics(
         embeddings, linkage_matrix, distance_matrix)
-    print(f"Cophenetic correlation: {metrics['cophenetic_correlation']:.4f}")
+    logger.info(
+        f"Cophenetic correlation: {metrics['cophenetic_correlation']:.4f}")
 
     # Save metrics
     metrics_file = experiment_dir / "metrics.json"
     metrics['method'] = method
     metrics['metric'] = metric
     metrics['timestamp'] = timestamp
-    with open(metrics_file, 'w') as f:
-        json.dump(metrics, f, indent=2)
-    print(f"Saved metrics to: {metrics_file}")
+    try:
+        with open(metrics_file, 'w', encoding='utf-8') as f:
+            json.dump(metrics, f, indent=2)
+        logger.info(f"Saved metrics to: {metrics_file}")
+    except PermissionError:
+        raise PermissionError(
+            f"Permission denied writing to {metrics_file}. Check directory permissions."
+        )
+    except OSError as e:
+        raise OSError(f"Error writing to {metrics_file}: {e}")
 
     # Create visualizations
-    print("\nCreating dendrogram visualizations...")
+    logger.info("Creating dendrogram visualizations...")
 
     # Static dendrogram (truncated for readability)
     dendro_path = experiment_dir / "dendrogram.png"
@@ -392,7 +371,7 @@ def run_hierarchical_clustering(
         p=50,
         title=f'Proverbs Hierarchical Clustering\n(Method: {method}, Metric: {metric})'
     )
-    print(f"Saved static dendrogram to: {dendro_path}")
+    logger.info(f"Saved static dendrogram to: {dendro_path}")
 
     # Full dendrogram (may be large)
     full_dendro_path = experiment_dir / "dendrogram_full.png"
@@ -403,7 +382,7 @@ def run_hierarchical_clustering(
         truncate_mode=None,
         title=f'Proverbs Full Dendrogram\n(Method: {method}, Metric: {metric})'
     )
-    print(f"Saved full dendrogram to: {full_dendro_path}")
+    logger.info(f"Saved full dendrogram to: {full_dendro_path}")
 
     # Interactive dendrogram
     interactive_path = experiment_dir / "dendrogram_interactive.html"
@@ -414,17 +393,17 @@ def run_hierarchical_clustering(
         verses_dict=verses_dict,
         title=f'Proverbs Hierarchical Clustering (Interactive)<br>Method: {method}, Metric: {metric}'
     )
-    print(f"Saved interactive dendrogram to: {interactive_path}")
+    logger.info(f"Saved interactive dendrogram to: {interactive_path}")
 
     # Extract flat clusters at different k values
     # The beauty of hierarchical clustering: you can extract any number of clusters
     # from the same tree without recomputing. K-means requires separate runs for each k.
-    print(f"\nExtracting flat clusters at k = {k_values}...")
+    logger.info(f"Extracting flat clusters at k = {k_values}...")
 
     all_clusters_results = {}
 
     for k in k_values:
-        print(f"\n  Processing k={k}...")
+        logger.info(f"Processing k={k}...")
         # Cut the dendrogram to get exactly k clusters
         labels = extract_clusters_at_level(linkage_matrix, n_clusters=k)
 
@@ -434,8 +413,8 @@ def run_hierarchical_clustering(
 
         # Generate titles if requested
         if generate_titles:
-            print(f"    Generating cluster titles...")
-            from cluster_titles import generate_titles_for_cluster, initialize_title_generator
+            logger.info(f"Generating cluster titles...")
+            from kmeans.cluster_titles import generate_titles_for_cluster, initialize_title_generator
             initialize_title_generator(
                 backend=title_backend, model=title_model)
 
@@ -447,7 +426,7 @@ def run_hierarchical_clustering(
                 if len(verses_texts) > 0:
                     titles = generate_titles_for_cluster(verses_texts)
                     clusters_data[cluster_key]["titles"] = titles
-                    print(
+                    logger.debug(
                         f"      Cluster {cluster_id}: {titles.get('title_3words', 'N/A')}")
 
         # Compute cluster sizes
@@ -465,9 +444,16 @@ def run_hierarchical_clustering(
 
         # Save clusters JSON
         clusters_file = experiment_dir / f"clusters_k{k}.json"
-        with open(clusters_file, 'w', encoding='utf-8') as f:
-            json.dump(result, f, indent=2, ensure_ascii=False)
-        print(f"    Saved clusters to: {clusters_file}")
+        try:
+            with open(clusters_file, 'w', encoding='utf-8') as f:
+                json.dump(result, f, indent=2, ensure_ascii=False)
+            logger.info(f"Saved clusters to: {clusters_file}")
+        except PermissionError:
+            raise PermissionError(
+                f"Permission denied writing to {clusters_file}. Check directory permissions."
+            )
+        except OSError as e:
+            raise OSError(f"Error writing to {clusters_file}: {e}")
 
         # Size ratio: max/min cluster sizes. High ratio = very unbalanced clusters (some huge, some tiny)
         # This is a quality indicator - balanced clusters are often better
@@ -489,24 +475,33 @@ def run_hierarchical_clustering(
     }
 
     summary_file = experiment_dir / "summary.json"
-    with open(summary_file, 'w') as f:
-        json.dump(summary, f, indent=2)
+    try:
+        with open(summary_file, 'w', encoding='utf-8') as f:
+            json.dump(summary, f, indent=2)
+    except PermissionError:
+        raise PermissionError(
+            f"Permission denied writing to {summary_file}. Check directory permissions."
+        )
+    except OSError as e:
+        raise OSError(f"Error writing to {summary_file}: {e}")
 
-    print(f"\n{'='*70}")
-    print(f"HIERARCHICAL CLUSTERING COMPLETE")
-    print(f"{'='*70}")
-    print(f"Output directory: {experiment_dir}")
-    print(f"\nFiles created:")
-    print(f"  - dendrogram.png (truncated view)")
-    print(f"  - dendrogram_full.png (all verses)")
-    print(f"  - dendrogram_interactive.html (Plotly)")
-    print(f"  - metrics.json")
-    print(f"  - summary.json")
+    logger.info("="*70)
+    logger.info("HIERARCHICAL CLUSTERING COMPLETE")
+    logger.info("="*70)
+    logger.info(f"Output directory: {experiment_dir}")
+    logger.info("Files created:")
+    logger.info("  - dendrogram.png (truncated view)")
+    logger.info("  - dendrogram_full.png (all verses)")
+    logger.info("  - dendrogram_interactive.html (Plotly)")
+    logger.info("  - metrics.json")
+    logger.info("  - summary.json")
     for k in k_values:
-        print(f"  - clusters_k{k}.json")
-    print(f"\nCophenetic correlation: {metrics['cophenetic_correlation']:.4f}")
-    print(f"  (values closer to 1.0 indicate the dendrogram well represents distances)")
-    print(f"{'='*70}\n")
+        logger.info(f"  - clusters_k{k}.json")
+    logger.info(
+        f"Cophenetic correlation: {metrics['cophenetic_correlation']:.4f}")
+    logger.info(
+        "  (values closer to 1.0 indicate the dendrogram well represents distances)")
+    logger.info("="*70)
 
     return experiment_dir
 
@@ -528,9 +523,9 @@ def compare_linkage_methods(
 
     results = {}
 
-    print(f"\n{'='*70}")
-    print("Comparing Linkage Methods")
-    print(f"{'='*70}\n")
+    logger.info("="*70)
+    logger.info("Comparing Linkage Methods")
+    logger.info("="*70)
 
     for method in methods:
         for metric in metrics:
@@ -540,7 +535,7 @@ def compare_linkage_methods(
                 continue
 
             key = f"{method}_{metric}"
-            print(f"Testing {method} linkage with {metric} distance...")
+            logger.info(f"Testing {method} linkage with {metric} distance...")
 
             try:
                 Z, dist_matrix = compute_linkage(embeddings, method, metric)
@@ -551,10 +546,10 @@ def compare_linkage_methods(
                     'metric': metric,
                     'cophenetic_correlation': metrics_dict['cophenetic_correlation']
                 }
-                print(
+                logger.info(
                     f"  Cophenetic correlation: {metrics_dict['cophenetic_correlation']:.4f}")
             except Exception as e:
-                print(f"  Error: {e}")
+                logger.error(f"  Error: {e}")
                 results[key] = {'method': method,
                                 'metric': metric, 'error': str(e)}
 
@@ -565,19 +560,28 @@ def compare_linkage_methods(
         best_key = max(
             valid_results, key=lambda k: valid_results[k]['cophenetic_correlation'])
         best = valid_results[best_key]
-        print(
-            f"\nBest method: {best['method']} with {best['metric']} distance")
-        print(f"Cophenetic correlation: {best['cophenetic_correlation']:.4f}")
+        logger.info(
+            f"Best method: {best['method']} with {best['metric']} distance")
+        logger.info(
+            f"Cophenetic correlation: {best['cophenetic_correlation']:.4f}")
 
     # Save comparison results
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     comparison_dir = Path(output_dir) / f"hierarchical_comparison_{timestamp}"
     comparison_dir.mkdir(parents=True, exist_ok=True)
 
-    with open(comparison_dir / "comparison_results.json", 'w') as f:
-        json.dump(results, f, indent=2)
+    try:
+        with open(comparison_dir / "comparison_results.json", 'w', encoding='utf-8') as f:
+            json.dump(results, f, indent=2)
+    except PermissionError:
+        raise PermissionError(
+            f"Permission denied writing to {comparison_dir / 'comparison_results.json'}. Check directory permissions."
+        )
+    except OSError as e:
+        raise OSError(
+            f"Error writing to {comparison_dir / 'comparison_results.json'}: {e}")
 
-    print(f"\nSaved comparison to: {comparison_dir}")
+    logger.info(f"Saved comparison to: {comparison_dir}")
 
     return results
 
@@ -587,12 +591,12 @@ if __name__ == "__main__":
     from embeddings import get_or_create_embeddings
     from main import embeddings_dict_to_array
 
-    print("Loading embeddings...")
+    logger.info("Loading embeddings...")
     embeddings_dict = get_or_create_embeddings()
     embeddings, verse_refs = embeddings_dict_to_array(embeddings_dict)
     arr = np.array(embeddings)
-    print(
-        f"Loaded {len(arr)} verses with {arr.shape[1]}-dimensional embeddings\n")
+    logger.info(
+        f"Loaded {len(arr)} verses with {arr.shape[1]}-dimensional embeddings")
 
     # Run hierarchical clustering
     run_hierarchical_clustering(

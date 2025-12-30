@@ -8,28 +8,30 @@ This script provides entry points for various analysis methods:
 - Hierarchical clustering (dendrograms)
 """
 
+import logging
 import numpy as np
 from embeddings import get_or_create_embeddings, embeddings_dict_to_array
-from kmeans.kmeans import run_kmeans_experiments
-from community_graph.community_graph import create_community_graph
 from kmeans.clustering_pipeline import run_clustering_pipeline
 from hierarchical.hierarchical_clustering import run_hierarchical_clustering, compare_linkage_methods
+from utils import setup_logging
+
+logger = logging.getLogger(__name__)
 
 
 def run_new_clustering_pipeline(embeddings, verse_refs, k_range=(10, 41),
                                 title_backend='ollama', title_model='llama3'):
-    print("\n" + "="*80)
-    print("RUNNING NEW CLUSTERING PIPELINE")
-    print("="*80)
-    print(f"This will run K-means for k={k_range[0]} to {k_range[1]-1}")
-    print(f"Title generation: {title_backend} ({title_model})")
-    print("Each clustering will:")
-    print("  - Compute quality metrics")
-    print("  - Generate 2D and 3D visualizations")
-    print("  - Generate 1, 3, and 5-word cluster titles using LLM")
-    print("  - Save results to experiments/ directory")
-    print("\nThis may take several minutes depending on your hardware...")
-    print("="*80 + "\n")
+    logger.info("="*80)
+    logger.info("RUNNING NEW CLUSTERING PIPELINE")
+    logger.info("="*80)
+    logger.info(f"This will run K-means for k={k_range[0]} to {k_range[1]-1}")
+    logger.info(f"Title generation: {title_backend} ({title_model})")
+    logger.info("Each clustering will:")
+    logger.info("  - Compute quality metrics")
+    logger.info("  - Generate 2D and 3D visualizations")
+    logger.info("  - Generate 1, 3, and 5-word cluster titles using LLM")
+    logger.info("  - Save results to experiments/ directory")
+    logger.info("This may take several minutes depending on your hardware...")
+    logger.info("="*80)
 
     experiment_dir = run_clustering_pipeline(
         embeddings=embeddings,
@@ -42,12 +44,12 @@ def run_new_clustering_pipeline(embeddings, verse_refs, k_range=(10, 41),
         title_model=title_model
     )
 
-    print(f"\nExperiment complete! Results saved to: {experiment_dir}")
-    print(f"\nTo analyze results, run:")
-    print(f"  python cluster_analysis.py {experiment_dir}")
-    print(f"\nOr in Python:")
-    print(f"  from cluster_analysis import compare_k_values")
-    print(f"  compare_k_values('{experiment_dir}')")
+    logger.info(f"Experiment complete! Results saved to: {experiment_dir}")
+    logger.info("To analyze results, run:")
+    logger.info(f"  python cluster_analysis.py {experiment_dir}")
+    logger.info("Or in Python:")
+    logger.info("  from cluster_analysis import compare_k_values")
+    logger.info(f"  compare_k_values('{experiment_dir}')")
 
     return experiment_dir
 
@@ -56,19 +58,20 @@ def run_hierarchical_pipeline(embeddings, verse_refs, method='average', metric='
                               k_values=None, generate_titles=False,
                               title_backend='ollama', title_model='llama3'):
     # Run hierarchical clustering pipeline with dendrogram visualizations.
-    print("\n" + "="*80)
-    print("RUNNING HIERARCHICAL CLUSTERING PIPELINE")
-    print("="*80)
-    print("This will:")
-    print("  - Compute agglomerative hierarchical clustering")
-    print("  - Create static and interactive dendrogram visualizations")
-    print(
+    logger.info("="*80)
+    logger.info("RUNNING HIERARCHICAL CLUSTERING PIPELINE")
+    logger.info("="*80)
+    logger.info("This will:")
+    logger.info("  - Compute agglomerative hierarchical clustering")
+    logger.info("  - Create static and interactive dendrogram visualizations")
+    logger.info(
         f"  - Extract flat clusters at k = {k_values or [5, 10, 15, 20, 25]}")
-    print("  - Compute cophenetic correlation to assess dendrogram quality")
+    logger.info(
+        "  - Compute cophenetic correlation to assess dendrogram quality")
     if generate_titles:
-        print(
+        logger.info(
             f"  - Generate cluster titles using {title_backend} ({title_model})")
-    print("="*80 + "\n")
+    logger.info("="*80)
 
     experiment_dir = run_hierarchical_clustering(
         embeddings=embeddings,
@@ -82,23 +85,26 @@ def run_hierarchical_pipeline(embeddings, verse_refs, method='average', metric='
         title_model=title_model
     )
 
-    print(f"\nExperiment complete! Results saved to: {experiment_dir}")
-    print(f"\nKey files:")
-    print(f"  - dendrogram.png: Truncated dendrogram overview")
-    print(f"  - dendrogram_full.png: Full dendrogram with all verses")
-    print(f"  - dendrogram_interactive.html: Interactive Plotly visualization")
-    print(f"  - clusters_k{{N}}.json: Flat clusters at various levels")
+    logger.info(f"Experiment complete! Results saved to: {experiment_dir}")
+    logger.info("Key files:")
+    logger.info("  - dendrogram.png: Truncated dendrogram overview")
+    logger.info("  - dendrogram_full.png: Full dendrogram with all verses")
+    logger.info(
+        "  - dendrogram_interactive.html: Interactive Plotly visualization")
+    logger.info("  - clusters_k{N}.json: Flat clusters at various levels")
 
     return experiment_dir
 
 
 if __name__ == "__main__":
-    print("Loading embeddings...")
+    setup_logging()
+
+    logger.info("Loading embeddings...")
     embeddings_dict = get_or_create_embeddings()
     embeddings, verse_refs = embeddings_dict_to_array(embeddings_dict)
     arr = np.array(embeddings)
-    print(
-        f"Loaded {len(arr)} verses with {arr.shape[1]}-dimensional embeddings\n")
+    logger.info(
+        f"Loaded {len(arr)} verses with {arr.shape[1]}-dimensional embeddings")
 
     # Choose which analysis to run:
 

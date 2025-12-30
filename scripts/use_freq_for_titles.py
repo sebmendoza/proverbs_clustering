@@ -3,7 +3,7 @@ from collections import Counter
 import re
 
 
-class FrequyencyTitleGenerator:
+class FrequencyTitleGenerator:
     def __init__(self, cluster_of_verses: list[Cluster]):
         self.verses = cluster_of_verses
 
@@ -29,5 +29,5 @@ if __name__ == "__main__":
     json_file = "experiments/experiment_20251223_114054/k_20/clusters.json"
     cluster_builder = ClusterBuilder(json_file)
     clusters = cluster_builder.get_clusters()
-    generator = FrequyencyTitleGenerator(clusters)
+    generator = FrequencyTitleGenerator(clusters)
     generator.get_top_n__words_per_cluster(30)

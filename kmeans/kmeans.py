@@ -13,8 +13,8 @@ from pathlib import Path
 import json
 
 from utils import saveGraph, getDataFromJson
-from cluster_quality import compute_cluster_metrics, flag_quality_issues, get_quality_summary
-from cluster_viz import create_2d_visualization, create_3d_visualization, create_cluster_distribution_plot
+from kmeans.cluster_quality import compute_cluster_metrics, flag_quality_issues, get_quality_summary
+from kmeans.cluster_viz import create_2d_visualization, create_3d_visualization, create_cluster_distribution_plot
 
 
 def print_clusters(labels, verse_refs, k, verses_dict, output_file="esv_kmeans_18_clusters.json"):

@@ -7,13 +7,11 @@ def main():
     with open("./outputs/esv_kmeans_19_clusters.json", "r") as f:
         data = json.load(f)
 
-    for cluster in data.values():
-        with open(out_file, "a") as f:
+    with open(out_file, "w") as f:
+        for cluster in data.values():
             f.write(f"\n\nCluster {cluster['cluster_id']}\n")
-        for verse in cluster["verses"]:
-            with open(out_file, "a") as f:
+            for verse in cluster["verses"]:
                 f.write(f"{verse['text']}\n")
-    pass
 
 
 if __name__ == "__main__":
