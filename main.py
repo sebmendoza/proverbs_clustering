@@ -14,7 +14,7 @@ from embeddings import get_or_create_embeddings, embeddings_dict_to_array
 from kmeans.clustering_pipeline import run_clustering_pipeline
 from hierarchical.hierarchical_clustering import run_hierarchical_clustering, compare_linkage_methods
 from utils import setup_logging
-
+from community_graph.community_graph import create_community_graph
 logger = logging.getLogger(__name__)
 
 
@@ -114,20 +114,20 @@ if __name__ == "__main__":
 
     # Option 2: HIERARCHICAL CLUSTERING (Recommended for theme exploration)
     # Creates dendrograms showing thematic hierarchy at multiple levels
-    run_hierarchical_pipeline(
-        arr, verse_refs,
-        method='ward',
-        metric='euclidean',
-        k_values=[5, 10, 15, 20, 25, 40, 50, 60],
-        generate_titles=False
-    )
+    # run_hierarchical_pipeline(
+    #     arr, verse_refs,
+    #     method='ward',
+    #     metric='euclidean',
+    #     k_values=[5, 10, 15, 20, 25, 40, 50, 60],
+    #     generate_titles=False
+    # )
 
     # Option 3: LEGACY KMEANS EXPERIMENTS
     # Runs k=2 to k=29 with basic metrics and visualizations
     # run_kmeans_experiments(arr, verse_refs)
 
     # Option 4: COMMUNITY GRAPH ANALYSIS
-    # create_community_graph(arr, verse_refs)
+    create_community_graph(arr, verse_refs)
 
     # Option 5: COMPARE LINKAGE METHODS
     # Finds the best linkage method/metric combination

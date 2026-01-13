@@ -94,7 +94,7 @@ def evaluate_threshold_clustering(verse_refs, similarity_matrix):
     print("\n" + "=" * 80)
 
 
-def run_leiden_algo(nxgraph):
+def run_leiden_algo(nxgraph, title_prefix):
     # Leiden algorithm: state-of-the-art community detection algorithm
     # Finds communities (clusters) by optimizing modularity: measures how much more
     # edges exist within communities vs what you'd expect by random chance
@@ -120,7 +120,7 @@ def run_leiden_algo(nxgraph):
     return communities
 
 
-def visualize_initial_graph_2d(nxgraph):
+def visualize_initial_graph_2d(nxgraph, title_prefix):
     net_before = Network(height='900px', width='100%',
                          bgcolor='#222222', font_color='white',
                          )
@@ -146,12 +146,12 @@ def visualize_initial_graph_2d(nxgraph):
                           spring_length=150,  # Preferred edge length
                           spring_strength=0.001)  # How strong edges pull
 
-    net_before.write_html('proverbs_before_leiden.html', notebook=False)
+    net_before.write_html(f'{title_prefix}_before_leiden.html', notebook=False)
     print(
         f"Before: {nxgraph.number_of_nodes()} nodes, {nxgraph.number_of_edges()} edges")
 
 
-def visualize_leiden_graph_2d(nxgraph, node_to_community):
+def visualize_leiden_graph_2d(nxgraph, node_to_community, title_prefix):
     net_after = Network(height='900px', width='100%',
                         bgcolor='#222222', font_color='white')
 
@@ -184,10 +184,10 @@ def visualize_leiden_graph_2d(nxgraph, node_to_community):
 
     net_after.barnes_hut(gravity=-5000, central_gravity=0.3,
                          spring_length=150, spring_strength=0.001)
-    net_after.write_html('proverbs_after_leiden.html', notebook=False)
+    net_after.write_html(f'{title_prefix}_after_leiden.html', notebook=False)
 
 
-def visualize_initial_graph_3d(nxgraph, embeddings_matrix, verse_refs):
+def visualize_initial_graph_3d(nxgraph, embeddings_matrix, verse_refs, title_prefix):
     # Create a 3D Plotly visualization of the graph before community detection.
     from sklearn.decomposition import PCA
 
@@ -200,6 +200,9 @@ def visualize_initial_graph_3d(nxgraph, embeddings_matrix, verse_refs):
     # Create a mapping from verse_ref to position
     verse_to_pos = {verse_refs[i]: positions_3d[i]
                     for i in range(len(verse_refs))}
+
+    # Store positions for export (return at end of function)
+    positions_3d_dict = verse_to_pos.copy()
 
     # Prepare node data
     node_x = []
@@ -277,23 +280,28 @@ def visualize_initial_graph_3d(nxgraph, embeddings_matrix, verse_refs):
         margin=dict(l=0, r=0, b=0, t=40)
     )
 
-    fig.write_html('proverbs_before_leiden_3d.html')
+    fig.write_html(f'{title_prefix}_before_leiden_3d.html')
     print(
         f"3D Before: {nxgraph.number_of_nodes()} nodes, {nxgraph.number_of_edges()} edges")
-    print("Saved to: proverbs_before_leiden_3d.html")
+    print(f"Saved to: {title_prefix}_before_leiden_3d.html")
+
+    return positions_3d_dict
 
 
-def visualize_leiden_graph_3d(nxgraph, node_to_community, embeddings_matrix, verse_refs):
+def visualize_leiden_graph_3d(nxgraph, node_to_community, embeddings_matrix, verse_refs, title_prefix, positions_3d_dict=None):
     # Create a 3D Plotly visualization of the graph after community detection.
     from sklearn.decomposition import PCA
 
-    # Reduce embeddings to 3D for visualization
-    pca = PCA(n_components=3)
-    positions_3d = pca.fit_transform(embeddings_matrix)
-
-    # Create a mapping from verse_ref to position
-    verse_to_pos = {verse_refs[i]: positions_3d[i]
-                    for i in range(len(verse_refs))}
+    # Use provided positions or calculate new ones
+    if positions_3d_dict is None:
+        # Reduce embeddings to 3D for visualization
+        pca = PCA(n_components=3)
+        positions_3d = pca.fit_transform(embeddings_matrix)
+        # Create a mapping from verse_ref to position
+        verse_to_pos = {verse_refs[i]: positions_3d[i]
+                        for i in range(len(verse_refs))}
+    else:
+        verse_to_pos = positions_3d_dict
 
     # Color palette for communities
     color_palette = [
@@ -401,10 +409,10 @@ def visualize_leiden_graph_3d(nxgraph, node_to_community, embeddings_matrix, ver
         margin=dict(l=0, r=0, b=0, t=40)
     )
 
-    fig.write_html('proverbs_after_leiden_3d.html')
+    fig.write_html(f'{title_prefix}_after_leiden_3d.html')
     print(
         f"3D After: {nxgraph.number_of_nodes()} nodes, {len(communities_dict)} communities")
-    print("Saved to: proverbs_after_leiden_3d.html")
+    print(f"Saved to: {title_prefix}_after_leiden_3d.html")
 
 
 def create_community_graph(data, verse_refs):
@@ -419,8 +427,8 @@ def create_community_graph(data, verse_refs):
     # cosine_similarity_histogram(data)
     # evaluate_threshold_clustering(
     #     verse_refs=verse_refs, similarity_matrix=similarity_matrix)
-    THRESHOLD = 0.48
-
+    THRESHOLD = 0.5
+    TITLE_PREFIX = f"proverbs_threshold_{THRESHOLD}"
     community_graph = create_community_graph_with_threshold(
         verse_refs=verse_refs, similarity_matrix=similarity_matrix, threshold_value=THRESHOLD)
 
@@ -437,13 +445,14 @@ def create_community_graph(data, verse_refs):
     G_main_embeddings = data[node_indices]
     G_main_verse_refs = [verse_refs[i] for i in node_indices]
 
-    node_to_community = run_leiden_algo(G_main)
+    node_to_community = run_leiden_algo(G_main, TITLE_PREFIX)
 
     # 2D visualizations
-    visualize_initial_graph_2d(G_main)
-    visualize_leiden_graph_2d(G_main, node_to_community)
+    visualize_initial_graph_2d(G_main, TITLE_PREFIX)
+    visualize_leiden_graph_2d(G_main, node_to_community, TITLE_PREFIX)
 
     # 3D visualizations
-    # visualize_initial_graph_3d(G_main, G_main_embeddings, G_main_verse_refs)
+    # visualize_initial_graph_3d(
+    #     G_main, G_main_embeddings, G_main_verse_refs, TITLE_PREFIX)
     # visualize_leiden_graph_3d(
-    # G_main, node_to_community, G_main_embeddings, G_main_verse_refs)
+    #     G_main, node_to_community, G_main_embeddings, G_main_verse_refs, TITLE_PREFIX)
